@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rental Property Calculator</title>
+<meta name="theme-color" content="#0f3d2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="RentalCalc">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  :root {
+    --bg:#f6f4ef; --card:#fff; --ink:#1c2420; --muted:#6b736e; --line:#e3e0d8;
+    --brand:#0f3d2e; --accent:#f4c95d; --pos:#1d7a4f; --neg:#b3392f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#121614; --card:#1b201d; --ink:#e9ece9; --muted:#9aa39d; --line:#2c332f;
+            --brand:#1f6b51; --pos:#5cc99a; --neg:#ef7a6f; }
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; background:var(--bg); color:var(--ink);
+    font:15px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    -webkit-text-size-adjust:100%; }
+  header { background:var(--brand); color:#fff;
+    padding:calc(env(safe-area-inset-top) + 12px) 16px 14px; position:sticky; top:0; z-index:5; }
+  header h1 { margin:0; font-size:18px; font-weight:650; letter-spacing:.2px; }
+  header .sub { font-size:12px; opacity:.8; }
+  main { max-width:900px; margin:0 auto;
+    padding:12px 12px calc(env(safe-area-inset-bottom) + 40px); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px;
+    margin-bottom:12px; overflow:hidden; }
+  details > summary { list-style:none; cursor:pointer; padding:14px 16px; font-weight:600;
+    display:flex; justify-content:space-between; align-items:center; }
+  details > summary::-webkit-details-marker { display:none; }
+  details > summary::after { content:"▾"; color:var(--muted); transition:transform .2s; }
+  details:not([open]) > summary::after { transform:rotate(-90deg); }
+  .fields { padding:0 16px 10px; }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:9px 0; border-top:1px solid var(--line); }
+  .row label { flex:1; font-size:14px; }
+  .row label small { display:block; color:var(--muted); font-size:11.5px; }
+  .inp { display:flex; align-items:center; background:var(--bg); border:1px solid var(--line);
+    border-radius:9px; padding:0 8px; width:132px; flex-shrink:0; }
+  .inp span { color:var(--muted); font-size:13px; }
+  .inp input { border:0; background:transparent; color:var(--ink); width:100%;
+    font-size:16px; padding:8px 4px; text-align:right; outline:none; }
+  .kpis { display:grid; grid-template-columns:repeat(2,1fr); gap:1px; background:var(--line); }
+  @media (min-width:640px) { .kpis { grid-template-columns:repeat(4,1fr); } }
+  .kpi { background:var(--card); padding:12px 14px; }
+  .kpi .l { font-size:11.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; }
+  .kpi .v { font-size:19px; font-weight:650; margin-top:2px; font-variant-numeric:tabular-nums; }
+  .pos { color:var(--pos); } .neg { color:var(--neg); }
+  .tablewrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  table { border-collapse:collapse; width:100%; font-size:13px; font-variant-numeric:tabular-nums; }
+  th, td { padding:8px 10px; text-align:right; white-space:nowrap; border-top:1px solid var(--line); }
+  th { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.3px;
+    font-weight:600; background:var(--card); }
+  th:first-child, td:first-child { position:sticky; left:0; background:var(--card); text-align:left; }
+  tr.hl td { font-weight:650; }
+  .section-title { padding:14px 16px 6px; font-weight:600; }
+  .note { padding:6px 16px 14px; color:var(--muted); font-size:12px; }
+  .bar { display:flex; gap:8px; padding:12px 16px; flex-wrap:wrap; align-items:center; }
+  .bar input, .bar select { font-size:16px; padding:8px 10px; border-radius:9px;
+    border:1px solid var(--line); background:var(--bg); color:var(--ink); flex:1; min-width:120px; }
+  button { font-size:15px; padding:9px 14px; border-radius:9px; border:0; background:var(--brand);
+    color:#fff; font-weight:600; }
+  button.ghost { background:transparent; color:var(--brand); border:1px solid var(--line); }
+  @media (prefers-color-scheme: dark) { button.ghost { color:var(--ink); } }
+  .breakdown { padding:0 16px 12px; font-size:13.5px; }
+  .breakdown .row { padding:7px 0; }
+  .breakdown .row b { font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Rental Property Calculator</h1>
+  <div class="sub" id="dealName">Unsaved deal</div>
+</header>
+<main>
+  <div class="card">
+    <div class="bar">
+      <input id="saveName" placeholder="Deal name (e.g. 12 Oak St)">
+      <button id="saveBtn">Save</button>
+    </div>
+    <div class="bar" style="padding-top:0">
+      <select id="dealList"><option value="">Saved deals…</option></select>
+      <button class="ghost" id="delBtn">Delete</button>
+      <button class="ghost" id="resetBtn">Reset</button>
+    </div>
+  </div>
+
+  <div id="inputs"></div>
+
+  <div class="card">
+    <div class="section-title">Key numbers</div>
+    <div class="kpis" id="kpis"></div>
+    <div class="note">“Stabilized” = a full year rented at year‑1 rent and costs. Year‑1 actual includes the lease‑up months with no rent.</div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Upfront cash &amp; first‑year costs</div>
+    <div class="breakdown" id="breakdown"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Year‑by‑year projection</div>
+    <div class="tablewrap"><table id="proj"></table></div>
+    <div class="note">Equity = property value − loan balance. Total gain = equity + cumulative cash flow − cash invested. “If sold” subtracts selling costs from equity. All figures are pre‑income‑tax (no depreciation or capital gains tax).</div>
+    <div class="bar"><button class="ghost" id="csvBtn">Export CSV</button></div>
+  </div>
+</main>
+
+<script>
+const FIELDS = [
+  { group:'Purchase & financing', open:true, items:[
+    ['price','Purchase price','$',250000],
+    ['closingPct','Closing costs','%',3,'% of purchase price'],
+    ['downPct','Down payment','%',20],
+    ['rate','Interest rate','%',7],
+    ['term','Loan term','yrs',30],
+    ['points','Loan points / lender fees','$',0],
+  ]},
+  { group:'Upfront work & lease‑up', open:true, items:[
+    ['rehab','Upfront work / rehab','$',15000],
+    ['otherUpfront','Other upfront costs','$',0,'Inspection, appraisal, furnishing…'],
+    ['arv','After‑repair value','$',0,'0 = use purchase price'],
+    ['vacantMonths','Months on market before rented','mo',2,'Includes rehab time'],
+    ['vacantUtil','Utilities while vacant','$/mo',200],
+    ['leasingFee','Leasing / tenant placement fee','$',0,'One‑time when first rented'],
+  ]},
+  { group:'Rental income', open:true, items:[
+    ['rent','Monthly rent','$/mo',2200],
+    ['otherIncome','Other income','$/mo',0,'Parking, laundry, pet fees'],
+    ['vacancyPct','Vacancy & credit loss','%',5,'After first tenant is placed'],
+    ['rentGrowth','Annual rent increase','%',3],
+  ]},
+  { group:'Operating costs', open:true, items:[
+    ['taxes','Property taxes','$/yr',4500],
+    ['insurance','Insurance','$/yr',1500],
+    ['township','Township / municipal fees','$/yr',600,'Sewer, trash, rental license, inspections'],
+    ['hoa','HOA / condo fees','$/mo',0],
+    ['utilities','Owner‑paid utilities (rented)','$/mo',0],
+    ['maintPct','Repairs & maintenance','%',5,'% of rent'],
+    ['capexPct','CapEx reserve','%',5,'% of rent (roof, HVAC, appliances)'],
+    ['mgmtPct','Property management','%',8,'% of collected rent'],
+    ['otherCapital','Other capital costs','$/yr',0,'Planned improvements, etc.'],
+    ['otherExp','Other expenses','$/yr',0,'Lawn, snow, pest, accounting'],
+    ['expGrowth','Annual cost increase','%',3],
+  ]},
+  { group:'Projection & sale', open:false, items:[
+    ['appreciation','Annual appreciation','%',3],
+    ['years','Years to project','yrs',10],
+    ['sellPct','Selling costs','%',6,'Agent commission + transfer tax'],
+  ]},
+];
+const DEFAULTS = {};
+FIELDS.forEach(g => g.items.forEach(f => DEFAULTS[f[0]] = f[3]));
+
+const $ = id => document.getElementById(id);
+const fmt$ = n => (n < 0 ? '−' : '') + '$' + Math.round(Math.abs(n)).toLocaleString('en-US');
+const fmtP = n => isFinite(n) ? (n*100).toFixed(1) + '%' : '—';
+const cls = n => n < 0 ? 'neg' : 'pos';
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+
+// ---------- build inputs ----------
+function buildInputs() {
+  const host = $('inputs');
+  FIELDS.forEach(g => {
+    const d = document.createElement('details');
+    d.className = 'card'; if (g.open) d.open = true;
+    d.innerHTML = `<summary>${g.group}</summary><div class="fields"></div>`;
+    const box = d.querySelector('.fields');
+    g.items.forEach(([id, label, unit, def, help]) => {
+      const pre = unit.startsWith('$') ? '$' : '';
+      const post = unit === '%' ? '%' : unit === 'mo' ? 'mo' : unit === 'yrs' ? 'yrs'
+                 : unit === '$/mo' ? '/mo' : unit === '$/yr' ? '/yr' : '';
+      box.insertAdjacentHTML('beforeend', `
+        <div class="row">
+          <label for="f_${id}">${label}${help ? `<small>${help}</small>` : ''}</label>
+          <div class="inp">${pre ? `<span>${pre}</span>` : ''}
+            <input id="f_${id}" inputmode="decimal" autocomplete="off">
+            ${post ? `<span>${post}</span>` : ''}</div>
+        </div>`);
+    });
+    host.appendChild(d);
+  });
+  host.addEventListener('input', e => {
+    if (e.target.tagName !== 'INPUT') return;
+    formatField(e.target, false);
+    store.set('rc_current', readInputs());
+    calc();
+  });
+  host.addEventListener('focusout', e => { if (e.target.tagName === 'INPUT') formatField(e.target, true); });
+}
+const num = s => { const v = parseFloat(String(s).replace(/[^0-9.\-]/g, '')); return isFinite(v) ? v : 0; };
+function formatField(el, final) {
+  // add thousands separators for big numbers without fighting the cursor while typing
+  if (!final) return;
+  const v = num(el.value);
+  el.value = Math.abs(v) >= 1000 ? v.toLocaleString('en-US', { maximumFractionDigits: 2 }) : (el.value === '' ? '0' : String(v));
+}
+function readInputs() { const o = {}; Object.keys(DEFAULTS).forEach(k => o[k] = num($('f_' + k).value)); return o; }
+function writeInputs(o) {
+  Object.keys(DEFAULTS).forEach(k => { const el = $('f_' + k); el.value = o[k] ?? DEFAULTS[k]; formatField(el, true); });
+}
+
+// ---------- model ----------
+function model(p) {
+  const years = Math.max(1, Math.min(40, Math.round(p.years)));
+  const loan = p.price * (1 - p.downPct / 100);
+  const down = p.price - loan;
+  const closing = p.price * p.closingPct / 100;
+  const cashInvested = down + closing + p.points + p.rehab + p.otherUpfront;
+  const r = p.rate / 100 / 12, n = Math.max(1, Math.round(p.term * 12));
+  const pmt = loan <= 0 ? 0 : r === 0 ? loan / n : loan * r / (1 - Math.pow(1 + r, -n));
+  const value0 = p.arv > 0 ? p.arv : p.price;
+  const vacM = Math.max(0, Math.round(p.vacantMonths));
+
+  let bal = loan, cum = 0;
+  const rows = [];
+  for (let y = 0; y < years; y++) {
+    const rg = Math.pow(1 + p.rentGrowth / 100, y), eg = Math.pow(1 + p.expGrowth / 100, y);
+    const Y = { year: y + 1, gross:0, vacLoss:0, income:0, opex:0, debt:0, interest:0, principal:0, leasedMonths:0 };
+    for (let m = 0; m < 12; m++) {
+      const mi = y * 12 + m, leased = mi >= vacM;
+      const sched = leased ? (p.rent + p.otherIncome) * rg : 0;
+      const vl = sched * p.vacancyPct / 100;
+      const eff = sched - vl;
+      let ox = (p.taxes + p.insurance + p.township + p.otherCapital + p.otherExp) / 12 * eg
+             + (p.hoa + (leased ? p.utilities : 0)) * eg
+             + (leased ? 0 : p.vacantUtil * eg)
+             + sched * (p.maintPct + p.capexPct) / 100
+             + eff * p.mgmtPct / 100;
+      if (mi === vacM) ox += p.leasingFee;
+      let debt = 0, int = 0, prin = 0;
+      if (mi < n && bal > 0) { int = bal * r; prin = Math.min(pmt - int, bal); debt = int + prin; bal -= prin; }
+      Y.gross += sched; Y.vacLoss += vl; Y.income += eff; Y.opex += ox;
+      Y.debt += debt; Y.interest += int; Y.principal += prin; if (leased) Y.leasedMonths++;
+    }
+    Y.noi = Y.income - Y.opex;
+    Y.cf = Y.noi - Y.debt;
+    cum += Y.cf; Y.cum = cum;
+    Y.value = value0 * Math.pow(1 + p.appreciation / 100, y + 1);
+    Y.bal = Math.max(0, bal);
+    Y.equity = Y.value - Y.bal;
+    Y.wealth = Y.equity + cum;
+    Y.gain = Y.wealth - cashInvested;
+    Y.saleNet = Y.value * (1 - p.sellPct / 100) - Y.bal;
+    Y.gainSold = Y.saleNet + cum - cashInvested;
+    rows.push(Y);
+  }
+  // IRR if sold at the end of each year
+  rows.forEach((Y, i) => {
+    const flows = [-cashInvested, ...rows.slice(0, i + 1).map(z => z.cf)];
+    flows[flows.length - 1] += Y.saleNet;
+    Y.irr = irr(flows);
+  });
+
+  // stabilized year-1 figures
+  const sGross = (p.rent + p.otherIncome) * 12;
+  const sEff = sGross * (1 - p.vacancyPct / 100);
+  const sOpex = p.taxes + p.insurance + p.township + p.otherCapital + p.otherExp + (p.hoa + p.utilities) * 12
+              + sGross * (p.maintPct + p.capexPct) / 100 + sEff * p.mgmtPct / 100;
+  const sNOI = sEff - sOpex, sDebt = pmt * 12, sCF = sNOI - sDebt;
+  const allIn = p.price + closing + p.rehab + p.otherUpfront + p.points;
+  return { rows, loan, down, closing, cashInvested, pmt, value0, sGross, sEff, sOpex, sNOI, sDebt, sCF, allIn,
+    holdCost: rows.length ? null : null };
+}
+function irr(flows) {
+  const npv = r => flows.reduce((s, c, t) => s + c / Math.pow(1 + r, t), 0);
+  let lo = -0.99, hi = 5;
+  if (npv(lo) * npv(hi) > 0) return NaN;
+  for (let i = 0; i < 200; i++) { const mid = (lo + hi) / 2; (npv(lo) * npv(mid) <= 0) ? hi = mid : lo = mid; }
+  return (lo + hi) / 2;
+}
+
+// ---------- render ----------
+let last;
+function calc() {
+  const p = readInputs(), M = model(p); last = { p, M };
+  const y1 = M.rows[0], end = M.rows[M.rows.length - 1];
+  const capRate = M.sNOI / M.allIn;
+  const coc = M.sCF / M.cashInvested;
+  const dscr = M.sDebt > 0 ? M.sNOI / M.sDebt : Infinity;
+  const k = [
+    ['Cash needed upfront', fmt$(M.cashInvested)],
+    ['Mortgage (P&amp;I) / mo', fmt$(M.pmt)],
+    ['Stabilized cash flow / mo', fmt$(M.sCF / 12), M.sCF],
+    ['Year‑1 actual cash flow', fmt$(y1.cf), y1.cf],
+    ['Cap rate (all‑in cost)', fmtP(capRate)],
+    ['Cash‑on‑cash (stabilized)', fmtP(coc), coc],
+    ['DSCR', isFinite(dscr) ? dscr.toFixed(2) + '×' : '—', dscr - 1],
+    ['Rent ÷ price (1% rule)', fmtP(p.price ? p.rent / p.price : NaN)],
+    [`Equity at yr ${end.year}`, fmt$(end.equity)],
+    [`Cum. cash flow yr ${end.year}`, fmt$(end.cum), end.cum],
+    [`Total gain yr ${end.year}`, fmt$(end.gain), end.gain],
+    [`IRR if sold yr ${end.year}`, fmtP(end.irr), end.irr],
+  ];
+  $('kpis').innerHTML = k.map(([l, v, s]) =>
+    `<div class="kpi"><div class="l">${l}</div><div class="v ${s === undefined ? '' : cls(s)}">${v}</div></div>`).join('');
+
+  // breakdown
+  const vacCarry = M.rows.length ? null : null;
+  const vacM = Math.min(12, Math.max(0, Math.round(p.vacantMonths)));
+  const vacHold = (p.taxes + p.insurance + p.township + p.otherCapital + p.otherExp) / 12 * vacM
+                + (p.hoa + p.vacantUtil) * vacM + M.pmt * vacM;
+  const b = [
+    ['Down payment', M.down], ['Closing costs', M.closing], ['Loan points / fees', p.points],
+    ['Upfront work / rehab', p.rehab], ['Other upfront costs', p.otherUpfront],
+    ['<b>Total cash invested</b>', M.cashInvested, true],
+    ['Loan amount', M.loan],
+    [`Holding cost during ${vacM} vacant mo (in yr‑1 cash flow)`, vacHold],
+    ['Stabilized gross rent / yr', M.sGross], ['Stabilized operating costs / yr', M.sOpex],
+    ['Stabilized NOI / yr', M.sNOI], ['Debt service / yr', M.sDebt],
+  ];
+  $('breakdown').innerHTML = b.map(([l, v, bold]) =>
+    `<div class="row"><span>${l}</span>${bold ? `<b>${fmt$(v)}</b>` : `<span>${fmt$(v)}</span>`}</div>`).join('');
+
+  // table
+  const cols = [
+    ['Yr', r => r.year], ['Income', r => fmt$(r.income)], ['Expenses', r => fmt$(r.opex)],
+    ['NOI', r => fmt$(r.noi)], ['Mortgage', r => fmt$(r.debt)],
+    ['Cash flow', r => `<span class="${cls(r.cf)}">${fmt$(r.cf)}</span>`],
+    ['Cum. CF', r => `<span class="${cls(r.cum)}">${fmt$(r.cum)}</span>`],
+    ['Value', r => fmt$(r.value)], ['Loan bal', r => fmt$(r.bal)],
+    ['Equity', r => fmt$(r.equity)], ['Equity + CF', r => fmt$(r.wealth)],
+    ['Total gain', r => `<span class="${cls(r.gain)}">${fmt$(r.gain)}</span>`],
+    ['Gain if sold', r => `<span class="${cls(r.gainSold)}">${fmt$(r.gainSold)}</span>`],
+    ['IRR if sold', r => fmtP(r.irr)],
+  ];
+  $('proj').innerHTML = `<thead><tr>${cols.map(c => `<th>${c[0]}</th>`).join('')}</tr></thead><tbody>` +
+    `<tr><td>0</td><td colspan="5" style="text-align:left;color:var(--muted)">Purchase + upfront work</td>` +
+    `<td class="neg">${fmt$(-M.cashInvested)}</td><td>${fmt$(M.value0)}</td><td>${fmt$(M.loan)}</td>` +
+    `<td>${fmt$(M.value0 - M.loan)}</td><td></td><td></td><td></td><td></td></tr>` +
+    M.rows.map((r, i) => `<tr class="${(i + 1) % 5 === 0 ? 'hl' : ''}">${cols.map(c => `<td>${c[1](r)}</td>`).join('')}</tr>`).join('') +
+    '</tbody>';
+}
+
+// ---------- saved deals ----------
+function refreshDeals(sel) {
+  const deals = store.get('rc_deals', {});
+  $('dealList').innerHTML = '<option value="">Saved deals…</option>' +
+    Object.keys(deals).sort().map(n => `<option ${n === sel ? 'selected' : ''}>${n.replace(/</g, '&lt;')}</option>`).join('');
+}
+$('saveBtn').onclick = () => {
+  const name = $('saveName').value.trim() || $('dealList').value;
+  if (!name) { $('saveName').focus(); return; }
+  const deals = store.get('rc_deals', {}); deals[name] = readInputs(); store.set('rc_deals', deals);
+  $('dealName').textContent = name; store.set('rc_name', name); refreshDeals(name);
+};
+$('dealList').onchange = e => {
+  const n = e.target.value; if (!n) return;
+  const d = store.get('rc_deals', {})[n]; if (!d) return;
+  writeInputs(d); $('saveName').value = n; $('dealName').textContent = n;
+  store.set('rc_name', n); store.set('rc_current', readInputs()); calc();
+};
+$('delBtn').onclick = () => {
+  const n = $('dealList').value; if (!n) return;
+  const deals = store.get('rc_deals', {}); delete deals[n]; store.set('rc_deals', deals); refreshDeals();
+};
+$('resetBtn').onclick = () => {
+  writeInputs(DEFAULTS); $('saveName').value = ''; $('dealName').textContent = 'Unsaved deal';
+  store.set('rc_name', ''); store.set('rc_current', readInputs()); calc();
+};
+$('csvBtn').onclick = () => {
+  const { M } = last;
+  const head = ['Year','Gross rent','Vacancy loss','Income','Expenses','NOI','Mortgage','Interest','Principal',
+    'Cash flow','Cumulative CF','Value','Loan balance','Equity','Equity+CF','Total gain','Gain if sold','IRR if sold'];
+  const lines = [head.join(',')].concat(M.rows.map(r => [r.year, r.gross, r.vacLoss, r.income, r.opex, r.noi, r.debt,
+    r.interest, r.principal, r.cf, r.cum, r.value, r.bal, r.equity, r.wealth, r.gain, r.gainSold,
+    isFinite(r.irr) ? (r.irr * 100).toFixed(2) + '%' : ''].map(v => typeof v === 'number' ? v.toFixed(0) : v).join(',')));
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (($('dealName').textContent || 'deal').replace(/[^\w\- ]/g, '') || 'deal') + '-projection.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+};
+
+// ---------- init ----------
+buildInputs();
+writeInputs({ ...DEFAULTS, ...store.get('rc_current', {}) });
+const savedName = store.get('rc_name', '');
+if (savedName) { $('dealName').textContent = savedName; $('saveName').value = savedName; }
+refreshDeals(savedName);
+calc();
+
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
